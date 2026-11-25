@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expert Analysis Tool</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-canvas: #f4f6fb;
+      --card-bg: #ffffff;
+      --border-light: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    .font-mono-tabular {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Central Glowing Purple/Indigo Digit Orb */
+    .digit-orb {
+      background: radial-gradient(circle at 32% 28%, #a78bfa 0%, #7c3aed 45%, #4f46e5 85%, #3730a3 100%);
+      box-shadow:
+        0 18px 36px -6px rgba(99, 102, 241, 0.45),
+        0 0 0 8px rgba(124, 58, 237, 0.10),
+        inset 0 2px 8px rgba(255, 255, 255, 0.42);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+    }
+
+    .digit-orb:active {
+      transform: scale(0.95);
+    }
+
+    .digit-orb.pulse-tick {
+      animation: orbTickPulse 0.45s ease;
+    }
+
+    @keyframes orbTickPulse {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.06); box-shadow: 0 22px 44px -4px rgba(124, 58, 237, 0.6), 0 0 0 12px rgba(124, 58, 237, 0.16), inset 0 2px 10px rgba(255, 255, 255, 0.5); }
+      100% { transform: scale(1); }
+    }
+
+    /* Subtle Price Flash Animations */
+    @keyframes flashUp {
+      0% { background-color: rgba(16, 185, 129, 0.18); }
+      100% { background-color: transparent; }
+    }
+
+    @keyframes flashDown {
+      0% { background-color: rgba(244, 63, 94, 0.18); }
+      100% { background-color: transparent; }
+    }
+
+    .price-flash-up {
+      animation: flashUp 0.45s ease-out;
+    }
+
+    .price-flash-down {
+      animation: flashDown 0.45s ease-out;
+    }
+
+    /* Custom Range Slider */
+    input[type="range"].custom-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      outline: none;
+    }
+
+    input[type="range"].custom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.45);
+      cursor: pointer;
+    }
+
+    input[type="range"].custom-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.45);
+      cursor: pointer;
+    }
+
+    /* Hide scrollbar on horizontal strips */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center pb-10">
+
+  <!-- Toast Notification Banner -->
+  <div id="toastBanner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 -translate-y-3 transition-all duration-200 bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 max-w-[92vw]">
+    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span id="toastText">Settings updated</span>
+  </div>
+
+  <!-- Top Sticky Header Bar -->
+  <header class="w-full sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+    <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <!-- Left: Brand Logo + Title -->
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-[15px] sm:text-base font-extrabold text-slate-900 tracking-tight truncate">Expert Analysis Tool</h1>
+          <button id="feedToggleBtn" type="button" onclick="toggleFeedSource()" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 rounded-full px-2 py-0.5 transition cursor-pointer" title="Tap to switch between Live WebSocket and Simulation Mode">
+            <span id="feedStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span id="feedStatusLabel">+ Live Data Connected</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Hamburger Menu Button -->
+      <button type="button" onclick="toggleDrawer(true)" aria-label="Open navigation menu" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 flex items-center justify-center transition shrink-0 cursor-pointer">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <line x1="4" y1="6" x2="20" y2="6"></line>
+          <line x1="4" y1="12" x2="20" y2="12"></line>
+          <line x1="4" y1="18" x2="20" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Slide-Over Navigation Drawer -->
+  <div id="drawerBackdrop" onclick="toggleDrawer(false)" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 hidden"></div>
+  <aside id="navDrawer" aria-label="Navigation Menu" class="fixed top-0 right-0 bottom-0 w-72 bg-white border-l border-slate-200 shadow-2xl z-50 transform translate-x-full transition-transform duration-250 ease-out flex flex-col justify-between p-5">
+    <div>
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">EA</div>
+          <span class="font-bold text-sm text-slate-900">Expert Menu</span>
+        </div>
+        <button type="button" onclick="toggleDrawer(false)" aria-label="Close menu" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center text-sm font-bold cursor-pointer">✕</button>
+      </div>
+
+      <nav class="mt-4 space-y-1.5">
+        <button type="button" onclick="scrollToSection('aiAnalyzerCard')" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition cursor-pointer">
+          <span>✨ AI Market Analyzer</span>
+          <span class="text-slate-400">›</span>
+        </button>
+        <button type="button" onclick="scrollToSection('liveDashboardCard')" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition cursor-pointer">
+          <span>📊 Live Dashboard</span>
+          <span class="text-slate-400">›</span>
+        </button>
+        <button type="button" onclick="scrollToSection('strategySelectorCard')" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition cursor-pointer">
+          <span>🎯 Strategy Selector</span>
+          <span class="text-slate-400">›</span>
+        </button>
+        <button type="button" onclick="scrollToSection('digitHistorySection')" class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition cursor-pointer">
+          <span>🔢 Tick History &amp; Stats</span>
+          <span class="text-slate-400">›</span>
+        </button>
+      </nav>
+
+      <!-- Feed Mode Card inside Drawer -->
+      <div class="mt-5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Data Feed Mode</div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button id="drawerLiveBtn" type="button" onclick="setFeedMode('live'); toggleDrawer(false);" class="py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer bg-indigo-600 text-white border-indigo-600">
+            Live WS
+          </button>
+          <button id="drawerSimBtn" type="button" onclick="setFeedMode('sim'); toggleDrawer(false);" class="py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer bg-white text-slate-700 border-slate-200">
+            Simulation
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+          Connects to Deriv public tick stream with instant offline synthetic fallback.
+        </p>
+      </div>
+    </div>
+
+    <div class="pt-4 border-t border-slate-100">
+      <button type="button" onclick="toggleDrawer(false); openTelegramModal();" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 transition cursor-pointer">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21.9 4.6c.3-1.3-.9-2.3-2.1-1.8L2.6 9.5c-1.3.5-1.2 2.4.1 2.8l4.4 1.4 1.7 5.3c.4 1.2 1.9 1.5 2.8.6l2.5-2.5 4.8 3.5c1.1.8 2.6.2 2.9-1.1l3.1-14.9z"/>
+        </svg>
+        <span>Join our Telegram</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Stack (Mobile-First Container) -->
+  <main class="w-full max-w-lg mx-auto px-4 pt-4 space-y-4">
+
+    <!-- =====================================================================
+         1. AI MARKET ANALYZER CARD
+         ===================================================================== -->
+    <section id="aiAnalyzerCard" class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5">
+      <!-- Card Header -->
+      <div class="flex items-center justify-between gap-2 mb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-7 h-7 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center text-sm font-bold">✦</span>
+          <h2 class="text-base font-extrabold text-slate-900 tracking-tight">AI Market Analyzer</h2>
+        </div>
+        <span id="analyzerLivePill" class="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/70">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping"></span>
+          <span>Scanning</span>
+        </span>
+      </div>
+
+      <!-- Top Metrics Row: Current Trend & Signal Strength -->
+      <div class="grid grid-cols-2 gap-3 mb-5">
+        <!-- Current Trend -->
+        <div class="bg-slate-50/90 border border-slate-200/70 rounded-2xl p-3">
+          <div class="text-[11px] font-semibold text-slate-500 mb-1">Current Trend</div>
+          <div class="flex items-center gap-1.5">
+            <span id="trendArrow" class="text-sm font-extrabold text-emerald-600">↗</span>
+            <span id="currentTrendText" class="text-sm font-extrabold text-emerald-600">Uptrend</span>
+          </div>
+          <div id="trendSubtext" class="text-[10px] text-slate-400 mt-0.5 font-mono-tabular">Momentum +0.18%</div>
+        </div>
+
+        <!-- Signal Strength -->
+        <div class="bg-slate-50/90 border border-slate-200/70 rounded-2xl p-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-semibold text-slate-500">Signal Strength</span>
+            <span id="signalPctText" class="text-[11px] font-extrabold text-indigo-600 font-mono-tabular">78%</span>
+          </div>
+          <div id="signalStrengthText" class="text-sm font-extrabold text-slate-900 mb-1.5">Strong Entry</div>
+          <!-- Segmented Progress Bar -->
+          <div class="grid grid-cols-4 gap-1">
+            <div id="sigBar1" class="h-1.5 rounded-full bg-indigo-600 transition-colors"></div>
+            <div id="sigBar2" class="h-1.5 rounded-full bg-indigo-600 transition-colors"></div>
+            <div id="sigBar3" class="h-1.5 rounded-full bg-indigo-600 transition-colors"></div>
+            <div id="sigBar4" class="h-1.5 rounded-full bg-slate-200 transition-colors"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Central Glowing Purple/Indigo Digit Orb Flanked by Interactive Pills -->
+      <div class="flex items-center justify-between gap-2 py-2">
+        <!-- Left Action Pill -->
+        <button id="leftOrbPill" type="button" onclick="selectSideOutcome('LEFT')" class="flex-1 py-3 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide transition shadow-sm cursor-pointer bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2">
+          Matches
+        </button>
+
+        <!-- Glowing Central Digit Orb -->
+        <div class="flex flex-col items-center px-2">
+          <button id="centralDigitOrb" type="button" onclick="manualRescan()" title="Tap to rescan dominant digit" class="digit-orb w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center text-white cursor-pointer select-none">
+            <span id="orbDigitDisplay" class="text-4xl sm:text-[42px] font-extrabold leading-none font-mono-tabular">4</span>
+            <span id="orbDigitCaption" class="text-[9.5px] font-bold uppercase tracking-widest text-violet-100 mt-1.5">Target Digit</span>
+          </button>
+
+          <!-- Dynamic Progress Counter Pill Beneath Orb (e.g., 3/10) -->
+          <div class="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 border border-violet-200/90 shadow-2xs">
+            <span class="w-1.5 h-1.5 rounded-full bg-violet-600"></span>
+            <span id="orbCounterPill" class="text-xs font-extrabold text-violet-800 font-mono-tabular">3/5</span>
+            <span class="text-[10px] font-semibold text-violet-600">ticks aligned</span>
+          </div>
+        </div>
+
+        <!-- Right Action Pill -->
+        <button id="rightOrbPill" type="button" onclick="selectSideOutcome('RIGHT')" class="flex-1 py-3 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide transition shadow-sm cursor-pointer bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
+          Differs
+        </button>
+      </div>
+
+      <!-- Pattern Detected Callout Box -->
+      <div class="mt-4 rounded-2xl bg-indigo-50/75 border border-indigo-200/80 p-3.5">
+        <div class="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-indigo-700 mb-1">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>Pattern Detected</span>
+        </div>
+        <p id="patternDetectedText" class="text-xs sm:text-[13px] text-slate-700 leading-relaxed font-medium">
+          Pattern Detected: Volatility 100 (1s) Index shows elevated digit 4 clustering over the last 50 ticks (16% frequency). Strong Differs setup building.
+        </p>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         2. LIVE DASHBOARD CARD (Selectors, Tick Duration & Live Price)
+         ===================================================================== -->
+    <section id="liveDashboardCard" class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-extrabold text-slate-900 tracking-tight">Live Dashboard</h2>
+          <p class="text-xs text-slate-500">Configure market, contract type &amp; custom tick duration</p>
+        </div>
+        <button type="button" onclick="resetTickWindow()" class="text-xs font-bold text-slate-600 hover:text-indigo-700 bg-slate-100 hover:bg-indigo-50 px-3 py-1.5 rounded-xl transition cursor-pointer">
+          Reset Window
+        </button>
+      </div>
+
+      <!-- Contract Type Selector -->
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">Contract Type</label>
+        <div class="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200/70">
+          <button id="ctMatchesDiffers" type="button" onclick="setContractCategory('MATCHES_DIFFERS')" class="py-2 px-2 rounded-xl text-xs font-extrabold transition cursor-pointer bg-white text-indigo-700 shadow-xs">
+            Matches / Differs
+          </button>
+          <button id="ctOverUnder" type="button" onclick="setContractCategory('OVER_UNDER')" class="py-2 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-slate-600 hover:text-slate-900">
+            Over / Under
+          </button>
+          <button id="ctEvenOdd" type="button" onclick="setContractCategory('EVEN_ODD')" class="py-2 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-slate-600 hover:text-slate-900">
+            Even / Odd
+          </button>
+        </div>
+
+        <!-- Target Digit / Barrier Selector (0-9) -->
+        <div id="barrierSelectorWrap" class="mt-2.5">
+          <div class="flex items-center justify-between mb-1.5">
+            <span id="barrierLabel" class="text-[11px] font-bold text-slate-500">Target Digit / Barrier (0–9)</span>
+            <button type="button" onclick="toggleAutoTargetDigit()" id="autoDigitToggle" class="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer">
+              Auto-AI: ON
+            </button>
+          </div>
+          <div id="digitPickerRow" class="grid grid-cols-10 gap-1"></div>
+        </div>
+      </div>
+
+      <!-- Volatility Index Selector (Full Coverage: 12 Synthetic Indices) -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label for="volatilitySelect" class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Volatility Index</label>
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="filterVolatilityGroup('ALL')" id="volFilterAll" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-600 text-white cursor-pointer">All (12)</button>
+            <button type="button" onclick="filterVolatilityGroup('1S')" id="volFilter1s" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">1s Only</button>
+            <button type="button" onclick="filterVolatilityGroup('STD')" id="volFilterStd" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer">Standard</button>
+          </div>
+        </div>
+
+        <!-- Quick Search Filter + Select Dropdown -->
+        <div class="space-y-2">
+          <div class="relative">
+            <input id="volatilitySearchInput" type="text" oninput="onVolatilitySearch()" placeholder="Filter volatility index (e.g., 75, 100 (1s), 250)..." class="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition" />
+            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
+
+          <div class="relative">
+            <select id="volatilitySelect" onchange="onVolatilitySelectChange()" class="w-full appearance-none bg-slate-50 hover:bg-slate-100/70 border border-slate-300/90 rounded-2xl px-3.5 py-2.5 pr-9 text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 transition cursor-pointer"></select>
+            <span class="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">▼</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tick Duration Selector (Any Tick Duration 1-100 + Sample Window) -->
+      <div class="bg-slate-50/90 border border-slate-200/80 rounded-2xl p-3.5 space-y-3">
+        <div class="flex items-center justify-between">
+          <label for="customTickInput" class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Tick Duration (1 – 100 Ticks)</label>
+          <span id="tickDurationBadge" class="text-xs font-extrabold text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full font-mono-tabular">5 Ticks</span>
+        </div>
+
+        <!-- Preset Quick-Select Buttons -->
+        <div class="grid grid-cols-5 gap-1.5">
+          <button type="button" onclick="setTickDuration(1)" data-tick-preset="1" class="tick-preset-btn py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:border-indigo-400 transition cursor-pointer">1 Tick</button>
+          <button type="button" onclick="setTickDuration(2)" data-tick-preset="2" class="tick-preset-btn py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:border-indigo-400 transition cursor-pointer">2 Ticks</button>
+          <button type="button" onclick="setTickDuration(3)" data-tick-preset="3" class="tick-preset-btn py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:border-indigo-400 transition cursor-pointer">3 Ticks</button>
+          <button type="button" onclick="setTickDuration(5)" data-tick-preset="5" class="tick-preset-btn py-1.5 rounded-xl text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer">5 Ticks</button>
+          <button type="button" onclick="setTickDuration(10)" data-tick-preset="10" class="tick-preset-btn py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:border-indigo-400 transition cursor-pointer">10 Ticks</button>
+        </div>
+
+        <!-- Custom Slider + Exact Numeric Input -->
+        <div class="flex items-center gap-3">
+          <input id="tickDurationSlider" type="range" min="1" max="100" value="5" oninput="setTickDuration(this.value)" class="custom-slider flex-1" />
+          <input id="customTickInput" type="number" min="1" max="100" value="5" onchange="setTickDuration(this.value)" oninput="setTickDuration(this.value)" aria-label="Custom tick duration" class="w-16 text-center font-mono-tabular text-sm font-extrabold bg-white border border-slate-300 rounded-xl py-1.5 text-slate-900 focus:outline-none focus:border-indigo-600" />
+        </div>
+
+        <!-- Analysis Sample Window Selector -->
+        <div class="pt-2 border-t border-slate-200/80 flex items-center justify-between gap-2">
+          <span class="text-[11px] font-semibold text-slate-500">Analysis Sample Depth:</span>
+          <div class="flex items-center gap-1 flex-wrap justify-end">
+            <button type="button" onclick="setSampleWindow(10)" data-sample="10" class="sample-btn px-2 py-1 rounded-lg text-[11px] font-bold bg-white border border-slate-200 text-slate-600 cursor-pointer">10</button>
+            <button type="button" onclick="setSampleWindow(25)" data-sample="25" class="sample-btn px-2 py-1 rounded-lg text-[11px] font-bold bg-white border border-slate-200 text-slate-600 cursor-pointer">25</button>
+            <button type="button" onclick="setSampleWindow(50)" data-sample="50" class="sample-btn px-2 py-1 rounded-lg text-[11px] font-extrabold bg-slate-900 border border-slate-900 text-white cursor-pointer">50</button>
+            <button type="button" onclick="setSampleWindow(100)" data-sample="100" class="sample-btn px-2 py-1 rounded-lg text-[11px] font-bold bg-white border border-slate-200 text-slate-600 cursor-pointer">100</button>
+            <button type="button" onclick="setSampleWindow(250)" data-sample="250" class="sample-btn px-2 py-1 rounded-lg text-[11px] font-bold bg-white border border-slate-200 text-slate-600 cursor-pointer">250</button>
+            <button type="button" onclick="setSampleWindow(500)" data-sample="500" class="sample-btn px-2 py-1 rounded-lg text-[11px] font-bold bg-white border border-slate-200 text-slate-600 cursor-pointer">500</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Ticking Price Readout Box -->
+      <div id="livePriceBox" class="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 transition-colors">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <span id="activeSymbolTitle" class="text-xs font-bold text-slate-600 truncate">Volatility 100 (1s) Index</span>
+          <span id="activeSymbolCode" class="text-[10px] font-mono-tabular font-bold uppercase px-2 py-0.5 rounded-md bg-slate-200/80 text-slate-700">1HZ100V</span>
+        </div>
+
+        <div class="flex items-baseline justify-between gap-2 my-1">
+          <div id="livePriceDisplay" class="font-mono-tabular text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight flex items-center">
+            <span>1842.59</span><span class="ml-1 inline-flex items-center justify-center px-2 py-0.5 rounded-xl bg-violet-600 text-white text-2xl sm:text-3xl shadow-sm">4</span>
+          </div>
+
+          <div class="text-right">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Last Digit</div>
+            <div id="lastDigitSummaryBadge" class="text-xs font-extrabold text-violet-700 font-mono-tabular">4 (EVEN)</div>
+          </div>
+        </div>
+
+        <!-- Recent Last-Digits Tape (Last 15 Ticks) -->
+        <div id="digitHistorySection" class="mt-3 pt-3 border-t border-slate-200/70">
+          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-2">
+            <span>Recent Last-Digits Tape (15 Ticks)</span>
+            <span id="evenOddRatioLabel" class="font-mono-tabular text-[10px] text-slate-500">E: 52% | O: 48%</span>
+          </div>
+          <div id="recentDigitsTape" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
+        </div>
+      </div>
+
+      <!-- Primary Action Toggle Button: STOP ANALYSIS / START ANALYSIS -->
+      <button id="toggleAnalysisBtn" type="button" onclick="toggleAnalysisState()" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-extrabold text-sm tracking-wider uppercase shadow-md shadow-rose-500/20 flex items-center justify-center gap-2 transition cursor-pointer">
+        <span id="toggleAnalysisIcon">■</span>
+        <span id="toggleAnalysisLabel">STOP ANALYSIS</span>
+      </button>
+
+      <!-- Digit Frequency Distribution (0–9) -->
+      <div class="pt-2">
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="text-xs font-extrabold text-slate-800">Digit Frequency Distribution (0–9)</span>
+          <div class="flex items-center gap-2 text-[10px] font-bold">
+            <span class="inline-flex items-center gap-1 text-emerald-700"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Highest</span>
+            <span class="inline-flex items-center gap-1 text-rose-700"><span class="w-2 h-2 rounded-full bg-rose-500"></span>Lowest</span>
+          </div>
+        </div>
+        <div id="digitFreqGrid" class="grid grid-cols-5 sm:grid-cols-10 gap-2"></div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         3. STRATEGY SELECTOR GRID
+         ===================================================================== -->
+    <section id="strategySelectorCard" class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5">
+      <div class="flex items-center justify-between mb-3.5">
+        <div>
+          <h2 class="text-base font-extrabold text-slate-900 tracking-tight">Strategy Selector</h2>
+          <p class="text-xs text-slate-500">Tap a strategy card to sync AI Analyzer signals</p>
+        </div>
+        <span id="activeStrategyBadge" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-violet-100 text-violet-800">
+          Differs Sniper
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <!-- Tile 1: Indigo/Purple - Digit Differs Sniper -->
+        <button type="button" onclick="selectStrategyCard('DIFFERS_SNIPER')" id="stratCard_DIFFERS_SNIPER" class="strategy-tile text-left p-4 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-md ring-2 ring-violet-600 ring-offset-2 transition transform active:scale-[0.98] cursor-pointer">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">Active</span>
+            <span class="text-base">🎯</span>
+          </div>
+          <div class="text-sm font-extrabold">Digit Differs Sniper</div>
+          <p class="text-[11px] text-violet-100 mt-1 leading-snug">Targets lowest-frequency cold digit over your chosen tick window.</p>
+        </button>
+
+        <!-- Tile 2: Emerald/Teal - Even / Odd Momentum -->
+        <button type="button" onclick="selectStrategyCard('EVEN_ODD_MOMENTUM')" id="stratCard_EVEN_ODD_MOMENTUM" class="strategy-tile text-left p-4 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm opacity-90 hover:opacity-100 transition transform active:scale-[0.98] cursor-pointer">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">Parity</span>
+            <span class="text-base">⚡</span>
+          </div>
+          <div class="text-sm font-extrabold">Even / Odd Momentum</div>
+          <p class="text-[11px] text-emerald-50 mt-1 leading-snug">Tracks consecutive parity streaks and mean-reversion triggers.</p>
+        </button>
+
+        <!-- Tile 3: Amber/Orange - Over / Under Barrier -->
+        <button type="button" onclick="selectStrategyCard('OVER_UNDER_BARRIER')" id="stratCard_OVER_UNDER_BARRIER" class="strategy-tile text-left p-4 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm opacity-90 hover:opacity-100 transition transform active:scale-[0.98] cursor-pointer">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">Barrier</span>
+            <span class="text-base">📈</span>
+          </div>
+          <div class="text-sm font-extrabold">Over / Under Barrier</div>
+          <p class="text-[11px] text-amber-50 mt-1 leading-snug">Evaluates digit skew above Over 2 or below Under 7 barriers.</p>
+        </button>
+
+        <!-- Tile 4: Blue/Cyan - Digit Matches Cluster -->
+        <button type="button" onclick="selectStrategyCard('MATCHES_CLUSTER')" id="stratCard_MATCHES_CLUSTER" class="strategy-tile text-left p-4 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 text-white shadow-sm opacity-90 hover:opacity-100 transition transform active:scale-[0.98] cursor-pointer">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">Cluster</span>
+            <span class="text-base">🔮</span>
+          </div>
+          <div class="text-sm font-extrabold">Digit Matches Cluster</div>
+          <p class="text-[11px] text-blue-50 mt-1 leading-snug">Detects repeating hot-digit clusters across custom tick windows.</p>
+        </button>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         4. FOOTER & TELEGRAM CTA
+         ===================================================================== -->
+    <footer class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-3 text-xs text-slate-600">
+        <div class="flex items-center gap-1.5 font-semibold">
+          <span id="footerDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span id="footerConnLabel">Connected</span>
+        </div>
+        <span class="text-slate-300">|</span>
+        <div class="font-mono-tabular font-bold text-slate-800">
+          Ticks Analyzed: <span id="footerTickCounter" class="text-indigo-600">0</span>
+        </div>
+      </div>
+
+      <button type="button" onclick="openTelegramModal()" class="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition cursor-pointer">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21.9 4.6c.3-1.3-.9-2.3-2.1-1.8L2.6 9.5c-1.3.5-1.2 2.4.1 2.8l4.4 1.4 1.7 5.3c.4 1.2 1.9 1.5 2.8.6l2.5-2.5 4.8 3.5c1.1.8 2.6.2 2.9-1.1l3.1-14.9z"/>
+        </svg>
+        <span>Join our Telegram</span>
+      </button>
+    </footer>
+  </main>
+
+  <!-- Community / Feed Info Modal -->
+  <div id="telegramModal" onclick="if(event.target===this) closeTelegramModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl border border-slate-200 max-w-sm w-full p-6 shadow-2xl">
+      <div class="w-12 h-12 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center mb-3">
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21.9 4.6c.3-1.3-.9-2.3-2.1-1.8L2.6 9.5c-1.3.5-1.2 2.4.1 2.8l4.4 1.4 1.7 5.3c.4 1.2 1.9 1.5 2.8.6l2.5-2.5 4.8 3.5c1.1.8 2.6.2 2.9-1.1l3.1-14.9z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-extrabold text-slate-900">Expert Analysis Telegram Hub</h3>
+      <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+        Get real-time volatility digit alerts, strategy templates, and session updates from the <strong>Expert Analysis Tool</strong> community.
+      </p>
+      <div class="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono-tabular text-slate-700 flex items-center justify-between">
+        <span>@expertanalysistool</span>
+        <button type="button" onclick="copyTelegramHandle()" class="text-indigo-600 font-bold hover:underline cursor-pointer">Copy Handle</button>
+      </div>
+      <button type="button" onclick="closeTelegramModal()" class="mt-4 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition cursor-pointer">
+        Back to Analyzer
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // FULL VOLATILITY INDICES CATALOG (12 Standard & 1-Second Indices)
+    // =========================================================================
+    const VOLATILITY_INDICES = [
+      { symbol: '1HZ10V',  name: 'Volatility 10 (1s) Index',  type: '1S',  decimals: 2, base: 9421.18, step: 0.35, intervalMs: 1000 },
+      { symbol: 'R_10',    name: 'Volatility 10 Index',       type: 'STD', decimals: 3, base: 6814.520, step: 0.45, intervalMs: 1200 },
+      { symbol: '1HZ25V',  name: 'Volatility 25 (1s) Index',  type: '1S',  decimals: 2, base: 5312.40, step: 0.65, intervalMs: 1000 },
+      { symbol: 'R_25',    name: 'Volatility 25 Index',       type: 'STD', decimals: 3, base: 2940.815, step: 0.75, intervalMs: 1200 },
+      { symbol: '1HZ50V',  name: 'Volatility 50 (1s) Index',  type: '1S',  decimals: 2, base: 4109.85, step: 0.95, intervalMs: 1000 },
+      { symbol: 'R_50',    name: 'Volatility 50 Index',       type: 'STD', decimals: 4, base: 245.6190, step: 0.08, intervalMs: 1200 },
+      { symbol: '1HZ75V',  name: 'Volatility 75 (1s) Index',  type: '1S',  decimals: 2, base: 4663.63, step: 1.45, intervalMs: 1000 },
+      { symbol: 'R_75',    name: 'Volatility 75 Index',       type: 'STD', decimals: 4, base: 381942.1500, step: 18.5, intervalMs: 1200 },
+      { symbol: '1HZ100V', name: 'Volatility 100 (1s) Index', type: '1S',  decimals: 2, base: 1842.59, step: 1.85, intervalMs: 1000 },
+      { symbol: 'R_100',   name: 'Volatility 100 Index',      type: 'STD', decimals: 2, base: 1520.47, step: 2.10, intervalMs: 1200 },
+      { symbol: '1HZ150V', name: 'Volatility 150 (1s) Index', type: '1S',  decimals: 2, base: 3190.74, step: 2.60, intervalMs: 1000 },
+      { symbol: '1HZ250V', name: 'Volatility 250 (1s) Index', type: '1S',  decimals: 2, base: 7428.12, step: 3.90, intervalMs: 1000 }
+    ];
+
+    const STRATEGIES = {
+      DIFFERS_SNIPER: {
+        label: 'Differs Sniper',
+        contractCategory: 'MATCHES_DIFFERS',
+        preferredSide: 'RIGHT' // Differs
+      },
+      EVEN_ODD_MOMENTUM: {
+        label: 'Even / Odd Momentum',
+        contractCategory: 'EVEN_ODD',
+        preferredSide: 'LEFT' // Even
+      },
+      OVER_UNDER_BARRIER: {
+        label: 'Over / Under Barrier',
+        contractCategory: 'OVER_UNDER',
+        preferredSide: 'LEFT' // Over
+      },
+      MATCHES_CLUSTER: {
+        label: 'Digit Matches Cluster',
+        contractCategory: 'MATCHES_DIFFERS',
+        preferredSide: 'LEFT' // Matches
+      }
+    };
+
+    // =========================================================================
+    // APPLICATION STATE
+    // =========================================================================
+    const state = {
+      selectedSymbol: '1HZ100V',
+      volFilterGroup: 'ALL',     // 'ALL' | '1S' | 'STD'
+      volSearchQuery: '',
+      contractCategory: 'MATCHES_DIFFERS', // 'MATCHES_DIFFERS' | 'OVER_UNDER' | 'EVEN_ODD'
+      selectedSide: 'RIGHT',     // 'LEFT' (Matches / Over / Even) | 'RIGHT' (Differs / Under / Odd)
+      targetDigit: 4,
+      autoTargetDigit: true,
+      tickDuration: 5,           // 1 to 100 ticks
+      sampleWindow: 50,          // 10, 25, 50, 100, 250, 500
+      strategyKey: 'DIFFERS_SNIPER',
+      isAnalyzing: true,
+      feedPreference: 'live',    // 'live' | 'sim'
+      activeFeedActual: 'sim',   // 'live' | 'sim'
+      ws: null,
+      wsReconnectTimer: null,
+      simTimer: null,
+      prices: [],                // rolling price buffer (up to 500)
+      digits: [],                // rolling last-digit buffer (up to 500)
+      totalTicksAnalyzed: 0,
+      lastDirection: 'UP'        // 'UP' | 'DOWN'
+    };
+
+    // =========================================================================
+    // INITIALIZATION
+    // =========================================================================
+    function init() {
+      populateVolatilityDropdown();
+      renderDigitPickerButtons();
+      seedInitialHistory();
+      updateAllUI();
+      connectDataFeed();
+    }
+
+    function getActiveMarket() {
+      return VOLATILITY_INDICES.find(m => m.symbol === state.selectedSymbol) || VOLATILITY_INDICES[8];
+    }
+
+    // =========================================================================
+    // DATA STREAMING: DERIV PUBLIC WEBSOCKET + AUTOMATIC SYNTHETIC FALLBACK
+    // =========================================================================
+    function connectDataFeed() {
+      cleanupConnections();
+
+      if (!state.isAnalyzing) {
+        updateConnectionBadge('paused');
+        return;
+      }
+
+      if (state.feedPreference === 'sim') {
+        startSimulationEngine('Simulation Mode');
+        return;
+      }
+
+      try {
+        updateConnectionBadge('connecting');
+        const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+        state.ws = ws;
+
+        const fallbackTimeout = setTimeout(() => {
+          if (state.activeFeedActual !== 'live' && state.feedPreference === 'live') {
+            startSimulationEngine('Simulated Feed (Offline Fallback)');
+          }
+        }, 4500);
+
+        ws.onopen = () => {
+          if (state.ws !== ws) return;
+          ws.send(JSON.stringify({
+            ticks_history: state.selectedSymbol,
+            count: Math.min(state.sampleWindow, 100),
+            end: 'latest',
+            style: 'ticks',
+            subscribe: 1
+          }));
+        };
+
+        ws.onmessage = (event) => {
+          if (state.ws !== ws || !state.isAnalyzing) return;
+          try {
+            const data = JSON.parse(event.data);
+            if (data.error) {
+              clearTimeout(fallbackTimeout);
+              startSimulationEngine('Simulated Feed');
+              return;
+            }
+
+            if (data.history && Array.isArray(data.history.prices)) {
+              clearTimeout(fallbackTimeout);
+              state.activeFeedActual = 'live';
+              updateConnectionBadge('live');
+              const mkt = getActiveMarket();
+              state.prices = [];
+              state.digits = [];
+              data.history.prices.forEach(p => {
+                const num = Number(p);
+                state.prices.push(num);
+                state.digits.push(extractLastDigit(num, mkt.decimals));
+              });
+              state.totalTicksAnalyzed += state.digits.length;
+              updateAllUI();
+            } else if (data.tick && typeof data.tick.quote !== 'undefined') {
+              clearTimeout(fallbackTimeout);
+              state.activeFeedActual = 'live';
+              updateConnectionBadge('live');
+              ingestNewPrice(Number(data.tick.quote));
+            }
+          } catch (err) {
+            // Ignore malformed frame
+          }
+        };
+
+        ws.onerror = () => {
+          clearTimeout(fallbackTimeout);
+          if (state.feedPreference === 'live' && state.isAnalyzing) {
+            startSimulationEngine('Simulated Feed');
+          }
+        };
+
+        ws.onclose = () => {
+          clearTimeout(fallbackTimeout);
+          if (state.feedPreference === 'live' && state.isAnalyzing && state.activeFeedActual === 'live') {
+            startSimulationEngine('Simulated Feed');
+          }
+        };
+      } catch (e) {
+        startSimulationEngine('Simulated Feed');
+      }
+    }
+
+    function cleanupConnections() {
+      if (state.ws) {
+        try {
+          state.ws.onopen = null;
+          state.ws.onmessage = null;
+          state.ws.onerror = null;
+          state.ws.onclose = null;
+          state.ws.close();
+        } catch (e) {}
+        state.ws = null;
+      }
+      if (state.simTimer) {
+        clearInterval(state.simTimer);
+        state.simTimer = null;
+      }
+      if (state.wsReconnectTimer) {
+        clearTimeout(state.wsReconnectTimer);
+        state.wsReconnectTimer = null;
+      }
+    }
+
+    function startSimulationEngine(badgeText) {
+      cleanupConnections();
+      state.activeFeedActual = 'sim';
+      updateConnectionBadge('sim', badgeText);
+
+      if (state.prices.length === 0) {
+        seedInitialHistory();
+      }
+
+      const mkt = getActiveMarket();
+      state.simTimer = setInterval(() => {
+        if (!state.isAnalyzing) return;
+        const prev = state.prices.length ? state.prices[state.prices.length - 1] : mkt.base;
+        const nextPrice = generateSyntheticQuote(prev, mkt);
+        ingestNewPrice(nextPrice);
+      }, mkt.intervalMs);
+    }
+
+    function seedInitialHistory() {
+      const mkt = getActiveMarket();
+      state.prices = [];
+      state.digits = [];
+      let current = mkt.base;
+      const seedCount = Math.max(50, state.sampleWindow);
+      for (let i = 0; i < seedCount; i++) {
+        current = generateSyntheticQuote(current, mkt);
+        state.prices.push(current);
+        state.digits.push(extractLastDigit(current, mkt.decimals));
+      }
+      state.totalTicksAnalyzed = seedCount;
+    }
+
+    function generateSyntheticQuote(prevPrice, mkt) {
+      const delta = (Math.random() - 0.495) * 2 * mkt.step;
+      const raw = Math.max(10, prevPrice + delta);
+      // Ensure uniform random last decimal digit distribution with subtle realistic clustering
+      const scale = Math.pow(10, mkt.decimals);
+      const truncated = Math.floor(raw * (scale / 10)) * 10;
+      const randomLastDigit = Math.floor(Math.random() * 10);
+      return (truncated + randomLastDigit) / scale;
+    }
+
+    function extractLastDigit(price, decimals) {
+      const formatted = Number(price).toFixed(decimals);
+      return parseInt(formatted.charAt(formatted.length - 1), 10) || 0;
+    }
+
+    function ingestNewPrice(price) {
+      const mkt = getActiveMarket();
+      const prevPrice = state.prices.length ? state.prices[state.prices.length - 1] : price;
+      state.lastDirection = price >= prevPrice ? 'UP' : 'DOWN';
+
+      state.prices.push(price);
+      state.digits.push(extractLastDigit(price, mkt.decimals));
+      state.totalTicksAnalyzed += 1;
+
+      if (state.prices.length > 500) state.prices.shift();
+      if (state.digits.length > 500) state.digits.shift();
+
+      triggerPriceFlash();
+      updateAllUI();
+    }
+
+    // =========================================================================
+    // ANALYTICS CALCULATIONS
+    // =========================================================================
+    function computeAnalytics() {
+      const windowSlice = state.digits.slice(-state.sampleWindow);
+      const total = Math.max(1, windowSlice.length);
+
+      // Digit frequency counts 0-9
+      const counts = new Array(10).fill(0);
+      let evenCount = 0;
+      windowSlice.forEach(d => {
+        counts[d]++;
+        if (d % 2 === 0) evenCount++;
+      });
+
+      let highestDigit = 0;
+      let highestCount = -1;
+      let lowestDigit = 0;
+      let lowestCount = Infinity;
+
+      counts.forEach((cnt, d) => {
+        if (cnt > highestCount) {
+          highestCount = cnt;
+          highestDigit = d;
+        }
+        if (cnt < lowestCount) {
+          lowestCount = cnt;
+          lowestDigit = d;
+        }
+      });
+
+      // Auto-select target digit if Auto-AI is enabled
+      if (state.autoTargetDigit) {
+        if (state.strategyKey === 'DIFFERS_SNIPER') {
+          state.targetDigit = lowestDigit;
+        } else if (state.strategyKey === 'MATCHES_CLUSTER') {
+          state.targetDigit = highestDigit;
+        } else if (state.strategyKey === 'OVER_UNDER_BARRIER') {
+          state.targetDigit = state.selectedSide === 'LEFT' ? 2 : 7;
+        } else if (state.strategyKey === 'EVEN_ODD_MOMENTUM') {
+          state.targetDigit = evenCount >= total / 2 ? 2 : 3;
+        }
+      }
+
+      // Rolling price momentum for Current Trend
+      const momentumWindow = state.prices.slice(-Math.max(6, Math.min(20, state.tickDuration * 2)));
+      let trend = 'Consolidating';
+      let momentumPct = 0;
+      if (momentumWindow.length >= 2) {
+        const first = momentumWindow[0];
+        const last = momentumWindow[momentumWindow.length - 1];
+        momentumPct = ((last - first) / Math.max(0.0001, first)) * 100;
+        if (momentumPct > 0.015) trend = 'Uptrend';
+        else if (momentumPct < -0.015) trend = 'Downtrend';
+      }
+
+      // Pattern alignment counter across the selected Tick Duration (e.g., 3/5)
+      const durationSlice = state.digits.slice(-state.tickDuration);
+      let alignedTicks = 0;
+      durationSlice.forEach(d => {
+        if (state.contractCategory === 'MATCHES_DIFFERS') {
+          if (state.selectedSide === 'LEFT') {
+            if (d === state.targetDigit) alignedTicks++;
+          } else {
+            if (d !== state.targetDigit) alignedTicks++;
+          }
+        } else if (state.contractCategory === 'OVER_UNDER') {
+          if (state.selectedSide === 'LEFT') {
+            if (d > state.targetDigit) alignedTicks++;
+          } else {
+            if (d < state.targetDigit) alignedTicks++;
+          }
+        } else if (state.contractCategory === 'EVEN_ODD') {
+          if (state.selectedSide === 'LEFT') {
+            if (d % 2 === 0) alignedTicks++;
+          } else {
+            if (d % 2 !== 0) alignedTicks++;
+          }
+        }
+      });
+
+      // Signal strength score (55% - 96%)
+      const alignmentRatio = alignedTicks / Math.max(1, durationSlice.length);
+      const skewBonus = Math.abs((highestCount - lowestCount) / total) * 80;
+      const confidence = Math.min(96, Math.max(54, Math.round(52 + alignmentRatio * 28 + skewBonus)));
+
+      let strengthLabel = 'Building';
+      if (confidence >= 80) strengthLabel = 'Strong Entry';
+      else if (confidence >= 68) strengthLabel = 'Moderate';
+
+      return {
+        windowSlice,
+        total,
+        counts,
+        highestDigit,
+        highestCount,
+        lowestDigit,
+        lowestCount,
+        evenCount,
+        oddCount: total - evenCount,
+        trend,
+        momentumPct,
+        alignedTicks,
+        durationLen: Math.max(1, durationSlice.length),
+        confidence,
+        strengthLabel
+      };
+    }
+
+    // =========================================================================
+    // UI RENDERING
+    // =========================================================================
+    function updateAllUI() {
+      const mkt = getActiveMarket();
+      const stats = computeAnalytics();
+
+      // 1. Trend & Signal Strength
+      const trendTextEl = document.getElementById('currentTrendText');
+      const trendArrowEl = document.getElementById('trendArrow');
+      const trendSubEl = document.getElementById('trendSubtext');
+
+      trendTextEl.textContent = stats.trend;
+      const sign = stats.momentumPct >= 0 ? '+' : '';
+      trendSubEl.textContent = `Momentum ${sign}${stats.momentumPct.toFixed(3)}%`;
+
+      if (stats.trend === 'Uptrend') {
+        trendTextEl.className = 'text-sm font-extrabold text-emerald-600';
+        trendArrowEl.className = 'text-sm font-extrabold text-emerald-600';
+        trendArrowEl.textContent = '↗';
+      } else if (stats.trend === 'Downtrend') {
+        trendTextEl.className = 'text-sm font-extrabold text-rose-600';
+        trendArrowEl.className = 'text-sm font-extrabold text-rose-600';
+        trendArrowEl.textContent = '↘';
+      } else {
+        trendTextEl.className = 'text-sm font-extrabold text-amber-600';
+        trendArrowEl.className = 'text-sm font-extrabold text-amber-600';
+        trendArrowEl.textContent = '→';
+      }
+
+      document.getElementById('signalPctText').textContent = `${stats.confidence}%`;
+      document.getElementById('signalStrengthText').textContent = stats.strengthLabel;
+
+      const activeBars = stats.confidence >= 84 ? 4 : stats.confidence >= 74 ? 3 : stats.confidence >= 62 ? 2 : 1;
+      [1, 2, 3, 4].forEach(idx => {
+        const bar = document.getElementById(`sigBar${idx}`);
+        bar.className = idx <= activeBars
+          ? 'h-1.5 rounded-full bg-indigo-600 transition-colors'
+          : 'h-1.5 rounded-full bg-slate-200 transition-colors';
+      });
+
+      // 2. Central Orb & Flanking Pills
+      const leftPill = document.getElementById('leftOrbPill');
+      const rightPill = document.getElementById('rightOrbPill');
+      const orbDigitEl = document.getElementById('orbDigitDisplay');
+      const orbCaptionEl = document.getElementById('orbDigitCaption');
+
+      let leftLabel = 'Matches';
+      let rightLabel = 'Differs';
+      if (state.contractCategory === 'OVER_UNDER') {
+        leftLabel = `Over ${state.targetDigit}`;
+        rightLabel = `Under ${state.targetDigit}`;
+      } else if (state.contractCategory === 'EVEN_ODD') {
+        leftLabel = 'Even';
+        rightLabel = 'Odd';
+      }
+
+      leftPill.textContent = leftLabel;
+      rightPill.textContent = rightLabel;
+
+      if (state.selectedSide === 'LEFT') {
+        leftPill.className = 'flex-1 py-3 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide transition shadow-sm cursor-pointer bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2';
+        rightPill.className = 'flex-1 py-3 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide transition cursor-pointer bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100';
+      } else {
+        leftPill.className = 'flex-1 py-3 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide transition cursor-pointer bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100';
+        rightPill.className = 'flex-1 py-3 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide transition shadow-sm cursor-pointer bg-emerald-600 text-white ring-2 ring-emerald-600 ring-offset-2';
+      }
+
+      if (state.contractCategory === 'EVEN_ODD') {
+        orbDigitEl.textContent = state.selectedSide === 'LEFT' ? 'E' : 'O';
+        orbCaptionEl.textContent = state.selectedSide === 'LEFT' ? 'Even Bias' : 'Odd Bias';
+      } else {
+        orbDigitEl.textContent = state.targetDigit;
+        orbCaptionEl.textContent = state.contractCategory === 'OVER_UNDER' ? 'Barrier' : 'Target Digit';
+      }
+
+      document.getElementById('orbCounterPill').textContent = `${stats.alignedTicks}/${state.tickDuration}`;
+
+      // 3. Pattern Detected Narrative
+      const activeOutcomeName = state.selectedSide === 'LEFT' ? leftLabel : rightLabel;
+      const targetFreqPct = Math.round((stats.counts[state.targetDigit] / stats.total) * 100);
+      const hotFreqPct = Math.round((stats.highestCount / stats.total) * 100);
+
+      let narrative = '';
+      if (state.contractCategory === 'EVEN_ODD') {
+        const evenPct = Math.round((stats.evenCount / stats.total) * 100);
+        const oddPct = 100 - evenPct;
+        narrative = `Pattern Detected: ${mkt.name} shows ${evenPct}% Even vs ${oddPct}% Odd split over the last ${stats.total} ticks (${state.tickDuration}-tick duration). ${stats.strengthLabel} ${activeOutcomeName} setup building.`;
+      } else if (state.contractCategory === 'OVER_UNDER') {
+        narrative = `Pattern Detected: ${mkt.name} highlights barrier ${state.targetDigit} with digit ${stats.highestDigit} leading at ${hotFreqPct}% across ${stats.total} ticks. ${stats.strengthLabel} ${activeOutcomeName} (${state.tickDuration} ticks) setup building.`;
+      } else {
+        narrative = `Pattern Detected: ${mkt.name} shows digit ${state.targetDigit} at ${targetFreqPct}% frequency (hot digit ${stats.highestDigit} at ${hotFreqPct}%) over ${stats.total} ticks. ${stats.strengthLabel} ${activeOutcomeName} (${state.tickDuration} ticks) setup building.`;
+      }
+      document.getElementById('patternDetectedText').textContent = narrative;
+
+      // 4. Live Price Readout & Last-Digit Tape
+      const latestPrice = state.prices.length ? state.prices[state.prices.length - 1] : mkt.base;
+      const formattedPrice = Number(latestPrice).toFixed(mkt.decimals);
+      const prefix = formattedPrice.slice(0, -1);
+      const lastChar = formattedPrice.slice(-1);
+      const lastDigitNum = parseInt(lastChar, 10) || 0;
+
+      document.getElementById('activeSymbolTitle').textContent = mkt.name;
+      document.getElementById('activeSymbolCode').textContent = mkt.symbol;
+
+      const highlightColor = state.selectedSide === 'LEFT' ? 'bg-blue-600' : 'bg-violet-600';
+      document.getElementById('livePriceDisplay').innerHTML = `
+        <span>${prefix}</span><span class="ml-1 inline-flex items-center justify-center px-2 py-0.5 rounded-xl ${highlightColor} text-white text-2xl sm:text-3xl shadow-sm">${lastChar}</span>
+      `;
+
+      const parityLabel = lastDigitNum % 2 === 0 ? 'EVEN' : 'ODD';
+      document.getElementById('lastDigitSummaryBadge').textContent = `${lastDigitNum} (${parityLabel})`;
+
+      const evenPct = Math.round((stats.evenCount / stats.total) * 100);
+      document.getElementById('evenOddRatioLabel').textContent = `E: ${evenPct}% | O: ${100 - evenPct}%`;
+
+      // Render Last 15 Digits Tape
+      const last15 = state.digits.slice(-15);
+      const tapeEl = document.getElementById('recentDigitsTape');
+      tapeEl.innerHTML = last15.map((d, idx) => {
+        const isNewest = idx === last15.length - 1;
+        const isTarget = d === state.targetDigit;
+        let cls = 'w-7 h-7 rounded-lg font-mono-tabular text-xs font-extrabold flex items-center justify-center shrink-0 border transition ';
+        if (isTarget) {
+          cls += 'bg-violet-600 text-white border-violet-600 shadow-2xs';
+        } else if (d % 2 === 0) {
+          cls += 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        } else {
+          cls += 'bg-blue-50 text-blue-700 border-blue-200';
+        }
+        if (isNewest) {
+          cls += ' ring-2 ring-slate-900 ring-offset-1';
+        }
+        return `<span class="${cls}">${d}</span>`;
+      }).join('');
+
+      // 5. Render 0-9 Digit Frequency Bars
+      const freqGrid = document.getElementById('digitFreqGrid');
+      freqGrid.innerHTML = stats.counts.map((cnt, digit) => {
+        const pct = Math.round((cnt / stats.total) * 100);
+        const isHighest = digit === stats.highestDigit;
+        const isLowest = digit === stats.lowestDigit;
+
+        let cardRing = 'border-slate-200 bg-slate-50/70';
+        let barColor = 'bg-indigo-500';
+        let numColor = 'text-slate-800';
+
+        if (isHighest) {
+          cardRing = 'border-emerald-400 bg-emerald-50/70 ring-1 ring-emerald-400';
+          barColor = 'bg-emerald-500';
+          numColor = 'text-emerald-800';
+        } else if (isLowest) {
+          cardRing = 'border-rose-400 bg-rose-50/70 ring-1 ring-rose-400';
+          barColor = 'bg-rose-500';
+          numColor = 'text-rose-800';
+        }
+
+        const barHeight = Math.min(100, Math.max(12, pct * 4.2));
+
+        return `
+          <div class="rounded-xl border ${cardRing} p-1.5 flex flex-col items-center justify-between">
+            <span class="text-[10px] font-mono-tabular font-bold text-slate-500">${pct}%</span>
+            <div class="w-full h-10 flex items-end justify-center my-1">
+              <div class="w-3 rounded-t-md ${barColor} transition-all duration-300" style="height: ${barHeight}%"></div>
+            </div>
+            <span class="text-xs font-mono-tabular font-extrabold ${numColor}">${digit}</span>
+          </div>
+        `;
+      }).join('');
+
+      // 6. Digit Picker Highlighting & Footer Counter
+      renderDigitPickerButtons();
+      document.getElementById('footerTickCounter').textContent = state.totalTicksAnalyzed.toLocaleString();
+    }
+
+    function renderDigitPickerButtons() {
+      const container = document.getElementById('digitPickerRow');
+      if (!container) return;
+      container.innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => {
+        const isSelected = d === state.targetDigit;
+        const cls = isSelected
+          ? 'py-1.5 rounded-lg font-mono-tabular text-xs font-extrabold bg-violet-600 text-white shadow-2xs cursor-pointer'
+          : 'py-1.5 rounded-lg font-mono-tabular text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
+        return `<button type="button" onclick="setManualTargetDigit(${d})" class="${cls}">${d}</button>`;
+      }).join('');
+    }
+
+    function triggerPriceFlash() {
+      const box = document.getElementById('livePriceBox');
+      if (!box) return;
+      box.classList.remove('price-flash-up', 'price-flash-down');
+      void box.offsetWidth;
+      box.classList.add(state.lastDirection === 'UP' ? 'price-flash-up' : 'price-flash-down');
+
+      const orb = document.getElementById('centralDigitOrb');
+      if (orb) {
+        orb.classList.remove('pulse-tick');
+        void orb.offsetWidth;
+        orb.classList.add('pulse-tick');
+      }
+    }
+
+    // =========================================================================
+    // USER CONTROLS & INTERACTIONS
+    // =========================================================================
+    function populateVolatilityDropdown() {
+      const select = document.getElementById('volatilitySelect');
+      const query = state.volSearchQuery.trim().toLowerCase();
+
+      const filtered = VOLATILITY_INDICES.filter(item => {
+        const matchesGroup = state.volFilterGroup === 'ALL' || item.type === state.volFilterGroup;
+        const matchesText = !query || item.name.toLowerCase().includes(query) || item.symbol.toLowerCase().includes(query);
+        return matchesGroup && matchesText;
+      });
+
+      const listToRender = filtered.length ? filtered : VOLATILITY_INDICES;
+      select.innerHTML = listToRender.map(item => `
+        <option value="${item.symbol}" ${item.symbol === state.selectedSymbol ? 'selected' : ''}>
+          ${item.name} (${item.symbol})
+        </option>
+      `).join('');
+
+      if (!listToRender.some(m => m.symbol === state.selectedSymbol)) {
+        state.selectedSymbol = listToRender[0].symbol;
+        select.value = state.selectedSymbol;
+      }
+    }
+
+    function filterVolatilityGroup(group) {
+      state.volFilterGroup = group;
+      ['ALL', '1S', 'STD'].forEach(g => {
+        const btn = document.getElementById(g === 'ALL' ? 'volFilterAll' : g === '1S' ? 'volFilter1s' : 'volFilterStd');
+        btn.className = g === group
+          ? 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-600 text-white cursor-pointer'
+          : 'text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer';
+      });
+      populateVolatilityDropdown();
+      onVolatilitySelectChange();
+    }
+
+    function onVolatilitySearch() {
+      state.volSearchQuery = document.getElementById('volatilitySearchInput').value;
+      populateVolatilityDropdown();
+    }
+
+    function onVolatilitySelectChange() {
+      const select = document.getElementById('volatilitySelect');
+      state.selectedSymbol = select.value;
+      seedInitialHistory();
+      updateAllUI();
+      connectDataFeed();
+      showToast(`Switched to ${getActiveMarket().name}`);
+    }
+
+    function setTickDuration(val) {
+      let num = parseInt(val, 10);
+      if (isNaN(num)) return;
+      num = Math.min(100, Math.max(1, num));
+      state.tickDuration = num;
+
+      document.getElementById('tickDurationBadge').textContent = `${num} ${num === 1 ? 'Tick' : 'Ticks'}`;
+      document.getElementById('tickDurationSlider').value = num;
+      document.getElementById('customTickInput').value = num;
+
+      document.querySelectorAll('.tick-preset-btn').forEach(btn => {
+        const preset = parseInt(btn.getAttribute('data-tick-preset'), 10);
+        btn.className = preset === num
+          ? 'tick-preset-btn py-1.5 rounded-xl text-xs font-extrabold border border-indigo-600 bg-indigo-600 text-white shadow-2xs transition cursor-pointer'
+          : 'tick-preset-btn py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:border-indigo-400 transition cursor-pointer';
+      });
+
+      updateAllUI();
+    }
+
+    function setSampleWindow(size) {
+      state.sampleWindow = size;
+      document.querySelectorAll('.sample-btn').forEach(btn => {
+        const s = parseInt(btn.getAttribute('data-sample'), 10);
+        btn.className = s === size
+          ? 'sample-btn px-2 py-1 rounded-lg text-[11px] font-extrabold bg-slate-900 border border-slate-900 text-white cursor-pointer'
+          : 'sample-btn px-2 py-1 rounded-lg text-[11px] font-bold bg-white border border-slate-200 text-slate-600 cursor-pointer';
+      });
+      if (state.digits.length < size) {
+        seedInitialHistory();
+      }
+      updateAllUI();
+      showToast(`Sample depth set to ${size} ticks`);
+    }
+
+    function setContractCategory(category) {
+      state.contractCategory = category;
+      const map = {
+        MATCHES_DIFFERS: 'ctMatchesDiffers',
+        OVER_UNDER: 'ctOverUnder',
+        EVEN_ODD: 'ctEvenOdd'
+      };
+      Object.entries(map).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        el.className = key === category
+          ? 'py-2 px-2 rounded-xl text-xs font-extrabold transition cursor-pointer bg-white text-indigo-700 shadow-xs'
+          : 'py-2 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-slate-600 hover:text-slate-900';
+      });
+
+      const barrierWrap = document.getElementById('barrierSelectorWrap');
+      barrierWrap.style.display = category === 'EVEN_ODD' ? 'none' : 'block';
+      updateAllUI();
+    }
+
+    function selectSideOutcome(side) {
+      state.selectedSide = side;
+      updateAllUI();
+    }
+
+    function setManualTargetDigit(digit) {
+      state.autoTargetDigit = false;
+      state.targetDigit = digit;
+      document.getElementById('autoDigitToggle').textContent = 'Auto-AI: OFF';
+      updateAllUI();
+    }
+
+    function toggleAutoTargetDigit() {
+      state.autoTargetDigit = !state.autoTargetDigit;
+      document.getElementById('autoDigitToggle').textContent = state.autoTargetDigit ? 'Auto-AI: ON' : 'Auto-AI: OFF';
+      updateAllUI();
+    }
+
+    function manualRescan() {
+      state.autoTargetDigit = true;
+      document.getElementById('autoDigitToggle').textContent = 'Auto-AI: ON';
+      updateAllUI();
+      triggerPriceFlash();
+      showToast(`AI Rescanned • Target ${state.targetDigit}`);
+    }
+
+    function selectStrategyCard(strategyKey) {
+      state.strategyKey = strategyKey;
+      const strat = STRATEGIES[strategyKey];
+      state.autoTargetDigit = true;
+      document.getElementById('autoDigitToggle').textContent = 'Auto-AI: ON';
+      state.selectedSide = strat.preferredSide;
+      setContractCategory(strat.contractCategory);
+
+      document.getElementById('activeStrategyBadge').textContent = strat.label;
+
+      Object.keys(STRATEGIES).forEach(key => {
+        const card = document.getElementById(`stratCard_${key}`);
+        const badge = card.querySelector('span');
+        if (key === strategyKey) {
+          card.classList.add('ring-2', 'ring-violet-600', 'ring-offset-2', 'opacity-100');
+          card.classList.remove('opacity-90');
+          badge.textContent = 'Active';
+        } else {
+          card.classList.remove('ring-2', 'ring-violet-600', 'ring-offset-2', 'opacity-100');
+          card.classList.add('opacity-90');
+        }
+      });
+
+      updateAllUI();
+      showToast(`Strategy: ${strat.label}`);
+    }
+
+    function toggleAnalysisState() {
+      state.isAnalyzing = !state.isAnalyzing;
+      const btn = document.getElementById('toggleAnalysisBtn');
+      const icon = document.getElementById('toggleAnalysisIcon');
+      const label = document.getElementById('toggleAnalysisLabel');
+      const pill = document.getElementById('analyzerLivePill');
+
+      if (state.isAnalyzing) {
+        btn.className = 'w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-extrabold text-sm tracking-wider uppercase shadow-md shadow-rose-500/20 flex items-center justify-center gap-2 transition cursor-pointer';
+        icon.textContent = '■';
+        label.textContent = 'STOP ANALYSIS';
+        pill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping"></span><span>Scanning</span>';
+        connectDataFeed();
+        showToast('Live analysis resumed');
+      } else {
+        btn.className = 'w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-sm tracking-wider uppercase shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2 transition cursor-pointer';
+        icon.textContent = '▶';
+        label.textContent = 'START ANALYSIS';
+        pill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span>Paused</span>';
+        cleanupConnections();
+        updateConnectionBadge('paused');
+        showToast('Analysis paused');
+      }
+    }
+
+    function resetTickWindow() {
+      seedInitialHistory();
+      updateAllUI();
+      showToast('Tick window reset');
+    }
+
+    function toggleFeedSource() {
+      setFeedMode(state.feedPreference === 'live' ? 'sim' : 'live');
+    }
+
+    function setFeedMode(mode) {
+      state.feedPreference = mode;
+      const liveBtn = document.getElementById('drawerLiveBtn');
+      const simBtn = document.getElementById('drawerSimBtn');
+      if (mode === 'live') {
+        liveBtn.className = 'py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer bg-indigo-600 text-white border-indigo-600';
+        simBtn.className = 'py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer bg-white text-slate-700 border-slate-200';
+      } else {
+        simBtn.className = 'py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer bg-indigo-600 text-white border-indigo-600';
+        liveBtn.className = 'py-2 px-2 rounded-xl text-xs font-bold border transition cursor-pointer bg-white text-slate-700 border-slate-200';
+      }
+      connectDataFeed();
+    }
+
+    function updateConnectionBadge(status, customText) {
+      const btn = document.getElementById('feedToggleBtn');
+      const dot = document.getElementById('feedStatusDot');
+      const lbl = document.getElementById('feedStatusLabel');
+      const footerDot = document.getElementById('footerDot');
+      const footerLbl = document.getElementById('footerConnLabel');
+
+      if (status === 'live') {
+        btn.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 rounded-full px-2 py-0.5 transition cursor-pointer';
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
+        lbl.textContent = customText || '+ Live Data Connected';
+        footerDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+        footerLbl.textContent = 'Live Stream Active';
+      } else if (status === 'connecting') {
+        btn.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/80 rounded-full px-2 py-0.5 transition cursor-pointer';
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping';
+        lbl.textContent = 'Connecting Live Feed...';
+        footerDot.className = 'w-2 h-2 rounded-full bg-amber-500';
+        footerLbl.textContent = 'Connecting...';
+      } else if (status === 'paused') {
+        btn.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5 transition cursor-pointer';
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+        lbl.textContent = 'Analysis Paused';
+        footerDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+        footerLbl.textContent = 'Paused';
+      } else {
+        btn.className = 'inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 rounded-full px-2 py-0.5 transition cursor-pointer';
+        dot.className = 'w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse';
+        lbl.textContent = customText || '+ Live Simulation Active';
+        footerDot.className = 'w-2 h-2 rounded-full bg-indigo-500';
+        footerLbl.textContent = 'Simulation Engine';
+      }
+    }
+
+    // Drawer & Modal Helpers
+    function toggleDrawer(open) {
+      const drawer = document.getElementById('navDrawer');
+      const backdrop = document.getElementById('drawerBackdrop');
+      if (open) {
+        backdrop.classList.remove('hidden');
+        drawer.classList.remove('translate-x-full');
+      } else {
+        drawer.classList.add('translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    function scrollToSection(id) {
+      toggleDrawer(false);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function openTelegramModal() {
+      const modal = document.getElementById('telegramModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeTelegramModal() {
+      const modal = document.getElementById('telegramModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function copyTelegramHandle() {
+      const temp = document.createElement('textarea');
+      temp.value = '@expertanalysistool';
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+      showToast('Copied @expertanalysistool');
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const banner = document.getElementById('toastBanner');
+      document.getElementById('toastText').textContent = msg;
+      banner.classList.remove('opacity-0', '-translate-y-3');
+      banner.classList.add('opacity-100', 'translate-y-0');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        banner.classList.add('opacity-0', '-translate-y-3');
+        banner.classList.remove('opacity-100', 'translate-y-0');
+      }, 2200);
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
